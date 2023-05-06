@@ -68,7 +68,7 @@ class NoSpotify(breadcord.module.ModuleCog):
         video = (await VideosSearch(f"{track_name} {' '.join(track_artists)}", limit=1).next())["result"][0]
         return video["link"]
 
-    @app_commands.command()
+    @app_commands.command(description="Get youtube video from a spotify track url")
     async def spotify_to_yt(self, interaction: discord.Interaction, url: str) -> None:
         urls = extract_ids_from_url(url)
         if not urls:
