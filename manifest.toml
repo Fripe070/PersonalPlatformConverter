@@ -1,0 +1,13 @@
+manifest_version = 1
+
+[module]
+name = "No Spotify URLs"
+id = "no_spotify"
+description = "Get youtube video versions of spotify tracks"
+version = "1.0.0"
+license = "GNU GPLv3"
+authors = ["Fripe"]
+requirements = [
+    "aiohttp",
+    "youtube-search-python"
+]
