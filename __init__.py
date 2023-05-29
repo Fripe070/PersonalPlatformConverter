@@ -12,7 +12,7 @@ import breadcord
 
 def extract_ids_from_url(url: str, /) -> list[str]:
     return re.findall(
-        r"https://open\.spotify\.com/track/(\w+)",
+        r"https?://open\.spotify\.com/track/(\w+)",
         url,
         flags=re.ASCII
     )
@@ -26,7 +26,6 @@ class NoSpotify(breadcord.module.ModuleCog):
         self.session: None | aiohttp.ClientSession = None
 
         self.bot.loop.create_task(self.refresh_api_key())
-
 
     async def cog_load(self) -> None:
         self.session = aiohttp.ClientSession()
@@ -46,6 +45,8 @@ class NoSpotify(breadcord.module.ModuleCog):
                 }
             ) as response:
                 data = await response.json()
+                if data["error"] == "invalid_client":
+                    raise ValueError("Invalid spotify client id or secret")
                 self.settings.api_key.value = data["access_token"]
 
                 self.logger.debug(f"Fetched new spotify token expiring in {data['expires_in']}s.")
