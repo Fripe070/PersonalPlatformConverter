@@ -75,7 +75,10 @@ class NoSpotify(breadcord.module.ModuleCog):
         else:
             raise ValueError("Could not find a track ID in the specified URL.")
 
-    @commands.hybrid_command(description="Get youtube video from a spotify track url")
+    @commands.hybrid_command(
+        description="Get youtube video from a spotify track url",
+        aliases=["s2yt", "sp_to_yt", "to_yt"]
+    )
     async def spotify_to_yt(self, ctx: commands.Context, url: str) -> None:
         try:
             await ctx.reply(await self.spotify_url_to_youtube(url), ephemeral=True)
