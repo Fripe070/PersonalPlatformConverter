@@ -6,7 +6,6 @@ from .errors import InvalidURLError
 
 
 class SpotifyAPI(AbstractOAuthAPI):
-    platform_name = "spotify"
     api_base = "https://api.spotify.com/v1"
 
     async def refresh_access_token(self):

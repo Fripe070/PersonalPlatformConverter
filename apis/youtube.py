@@ -1,5 +1,6 @@
 import re
 
+# noinspection PyFromFutureImport
 from youtubesearchpython.__future__ import VideosSearch, Video
 
 from .abc import AbstractAPI, UniversalTrack
@@ -7,9 +8,6 @@ from .errors import InvalidURLError
 
 
 class YoutubeAPI(AbstractAPI):
-    platform_name = "spotify"
-    api_base = "https://api.spotify.com/v1"
-
     @staticmethod
     def extract_video_id(video_url: str, /) -> str:
         if matches := re.match(
