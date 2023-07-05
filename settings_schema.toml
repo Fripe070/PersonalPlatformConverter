@@ -1,10 +1,10 @@
 # If the bot should search for URLs in sent messages
 search_messages = true
 
-# The key used to authentifate with the spotify API
-# Automatically created using the client_id and client_secret fields
-api_key = ""
+# Platforms that are supported by the bot
+active_platforms = ["spotify", "youtube"]
 
+[spotify]
 # Used to obtain an api key
 # https://developer.spotify.com/documentation/web-api/tutorials/getting-started#create-an-app
 client_id = ""

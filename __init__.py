@@ -1,96 +1,113 @@
-import asyncio
-import re
-
 import aiohttp
 import discord
-from discord.ext import commands
-# noinspection PyFromFutureImport
-from youtubesearchpython.__future__ import VideosSearch
+from discord import app_commands
+from discord.ext import commands, tasks
 
 import breadcord
+from .apis import AbstractAPI, AbstractOAuthAPI, SpotifyAPI, YoutubeAPI
+from .apis.errors import InvalidURLError
 
-
-def extract_ids_from_urls(url: str, /) -> list[str]:
-    return re.findall(
-        r"https?://open\.spotify\.com/track/(\w+)",
-        url,
-        flags=re.ASCII
-    )
+APIInterfaces = AbstractAPI | AbstractOAuthAPI
 
 
 class NoSpotify(breadcord.module.ModuleCog):
     def __init__(self, module_id: str, /):
         super().__init__(module_id)
 
-        self.api_base = "https://api.spotify.com/v1"
         self.session: None | aiohttp.ClientSession = None
+        self.api_interfaces: dict[str, APIInterfaces | type[APIInterfaces]] = {
+            "spotify": SpotifyAPI,
+            "youtube": YoutubeAPI
+        }
 
-        self.bot.loop.create_task(self.refresh_api_key())
+        self.refresh_access_tokens.start()
 
     async def cog_load(self) -> None:
         self.session = aiohttp.ClientSession()
+        handled_api_interfaces: dict[str, APIInterfaces] = {}
+
+        for platform_name in self.settings.active_platforms.value:
+            api_interface: type[APIInterfaces] | None = self.api_interfaces.get(platform_name)
+            if api_interface is None:
+                self.logger.warning(f"Unknown platform {platform_name}")
+                continue
+
+            if issubclass(api_interface, AbstractOAuthAPI):
+                platform_settings: breadcord.config.SettingsGroup = getattr(self.settings, platform_name)
+                handled_api_interfaces[platform_name] = api_interface(
+                    client_id=platform_settings.client_id.value,
+                    client_secret=platform_settings.client_secret.value,
+                    session=self.session
+                )
+            elif issubclass(api_interface, AbstractAPI):
+                handled_api_interfaces[platform_name] = api_interface(session=self.session)
+
+        self.api_interfaces = handled_api_interfaces
 
     async def cog_unload(self) -> None:
         await self.session.close()
 
-    async def refresh_api_key(self):
-        await self.bot.wait_until_ready()
-        while not self.bot.is_closed():
-            async with self.session.post(
-                "https://accounts.spotify.com/api/token",
-                data={
-                    "grant_type": "client_credentials",
-                    "client_id": self.settings.client_id.value,
-                    "client_secret": self.settings.client_secret.value
-                }
-            ) as response:
-                data = await response.json()
-                if data.get("error") == "invalid_client":
-                    raise ValueError("Invalid spotify client id or secret")
-                self.settings.api_key.value = data["access_token"]
+    @tasks.loop(minutes=20)
+    async def refresh_access_tokens(self):
+        for api in self.api_interfaces.values():
+            if hasattr(api, "refresh_access_token"):
+                self.logger.debug(f"Refreshing {api.__class__.__name__} access token")
+                await api.refresh_access_token()
+                self.logger.debug(f"Refreshed {api.__class__.__name__} access token")
 
-                self.logger.debug(f"Fetched new spotify token expiring in {data['expires_in']}s.")
-                await asyncio.sleep(data["expires_in"])
+    async def platform_autocomplete(
+        self,
+        interaction: discord.Interaction,
+        current: str
+    ) -> list[app_commands.Choice[str]]:
+        self.api_interfaces: dict[str, APIInterfaces]
 
-    async def get_spotify_track(self, track_id: str, /) -> dict:
-        async with self.session.get(
-            f"{self.api_base}/tracks/{track_id}",
-            headers={"Authorization": f"Bearer {self.settings.api_key.value}"}
-        ) as response:
-            if response.status == 401:
-                raise ValueError("Invalid spotify token")
-            return await response.json()
+        if not current:
+            return [
+                app_commands.Choice(name=platform_name, value=platform_name)
+                for platform_name in self.api_interfaces
+            ][:25]
 
-    async def spotify_id_to_youtube(self, track_id: str, /) -> str:
-        track_data = await self.get_spotify_track(track_id)
-        track_artists = [artist["name"] for artist in track_data["artists"]]
-        track_name = track_data["name"]
+        return [
+            app_commands.Choice(name=platform_name, value=platform_name)
+            for platform_name in breadcord.helpers.search_for(
+                query=current,
+                objects=list(self.api_interfaces.keys()),
+            )
+        ][:25]
 
-        video = (await VideosSearch(f"{track_name} {' '.join(track_artists)}", limit=1).next())["result"][0]
-        return video["link"]
-
-    async def spotify_url_to_youtube(self, url: str, /) -> str:
-        if ids := extract_ids_from_urls(url):
-            return await self.spotify_id_to_youtube(ids[0])
-        else:
-            raise ValueError("Could not find a track ID in the specified URL.")
-
-    @commands.hybrid_command(
-        description="Get youtube video from a spotify track url",
-        aliases=["s2yt", "sp_to_yt", "to_yt"]
+    @commands.hybrid_command()
+    @app_commands.autocomplete(
+        from_platform=platform_autocomplete, # type: ignore
+        to_platform=platform_autocomplete, # type: ignore
     )
-    async def spotify_to_yt(self, ctx: commands.Context, url: str) -> None:
-        try:
-            await ctx.reply(await self.spotify_url_to_youtube(url), ephemeral=True)
-        except ValueError as error:
-            await ctx.reply(str(error), ephemeral=True)
+    async def track_convert(self, ctx: commands.Context, from_platform: str, to_platform: str, url: str):
+        """Converts music from one platform to another
 
-    @breadcord.module.ModuleCog.listener()
-    async def on_message(self, message: discord.Message) -> None:
-        if not self.settings.search_messages.value:
+        Parameters
+        -----------
+        from_platform: str
+            the platform to convert from
+        to_platform: str
+            the platform to convert to
+        url: str
+            the url to the track to convert
+        """
+
+        if url.startswith("<") and url.endswith(">"):
+            url = url[1:-1]
+
+        from_platform = self.api_interfaces.get(from_platform.lower())
+        to_platform = self.api_interfaces.get(to_platform.lower())
+
+        try:
+            query = await from_platform.url_to_query(url)
+        except InvalidURLError:
+            await ctx.reply("Invalid url")
             return
-        if urls := [await self.spotify_id_to_youtube(track_id) for track_id in extract_ids_from_urls(message.content)]:
-            await message.reply(" ".join(urls), mention_author=False)
+
+        track = await to_platform.search(query)
+        await ctx.reply(track.url)
 
 
 async def setup(bot: breadcord.Bot):
