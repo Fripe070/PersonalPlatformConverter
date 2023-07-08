@@ -94,8 +94,5 @@ class AbstractOAuthAPI(AbstractAPI, ABC):
 
     @abstractmethod
     async def refresh_access_token(self):
-        if self._token_expires_at is not None and self._token_expires_at > datetime.now() + timedelta(minutes=20):
-            return
-
         raise NotImplementedError
 
