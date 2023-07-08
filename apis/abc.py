@@ -89,7 +89,6 @@ class AbstractOAuthAPI(AbstractAPI, ABC):
 
     @property
     def should_update_token(self) -> bool:
-        # This should be lower than the interval where the refresh function is called
         leniency = timedelta(minutes=15)
         return self._token_expires_at is None or self._token_expires_at < datetime.now() + leniency
 
