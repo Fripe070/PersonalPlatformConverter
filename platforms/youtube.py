@@ -27,6 +27,14 @@ class YoutubeAPI(AbstractAPI):
         else:
             raise InvalidURLError("Invalid Youtube video url")
 
+    async def is_valid_url(self, url: str, /) -> bool:
+        try:
+            self.extract_video_id(url)
+        except InvalidURLError:
+            return False
+        else:
+            return True
+
     async def url_to_query(self, video_url: str, /) -> str:
         video = await Video.getInfo(self.extract_video_id(video_url))
         return f"{video['title']} {video['channel']['name']}"

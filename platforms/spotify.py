@@ -28,9 +28,17 @@ class SpotifyAPI(AbstractOAuthAPI):
     @staticmethod
     def extract_track_id(track_url: str, /) -> str:
         if matches := re.match(r"https?://open\.spotify\.com/track/(\w+)", track_url, flags=re.ASCII):
-            return matches[0]
+            return matches[1]
         else:
             raise InvalidURLError("Invalid Spotify track url")
+
+    async def is_valid_url(self, url: str, /) -> bool:
+        try:
+            self.extract_track_id(url)
+        except InvalidURLError:
+            return False
+        else:
+            return True
 
     async def url_to_query(self, track_url: str, /) -> str | None:
         async with self.session.get(
@@ -40,6 +48,7 @@ class SpotifyAPI(AbstractOAuthAPI):
             if response.status == 401:
                 raise RuntimeError("Invalid spotify token")
             elif response.status != 200:
+                print(response.status, response.content)
                 return None
             track_data = await response.json()
 

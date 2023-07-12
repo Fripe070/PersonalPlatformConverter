@@ -71,6 +71,10 @@ class AbstractAPI(ABC):
         self.session = session
 
     @abstractmethod
+    async def is_valid_url(self, url: str, /) -> bool:
+        raise NotImplementedError
+
+    @abstractmethod
     async def search(self, query: str, /) -> UniversalTrack | None:
         raise NotImplementedError
 

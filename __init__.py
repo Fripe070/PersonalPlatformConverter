@@ -1,3 +1,6 @@
+import asyncio
+import re
+
 import aiohttp
 import discord
 from discord import app_commands
@@ -78,6 +81,7 @@ class NoSpotify(breadcord.module.ModuleCog):
             )
         ][:25]
 
+    # noinspection PyIncorrectDocstring
     @commands.hybrid_command()
     @app_commands.autocomplete(
         from_platform=platform_autocomplete, # type: ignore
@@ -111,6 +115,39 @@ class NoSpotify(breadcord.module.ModuleCog):
         track = await to_platform.search(query)
         await ctx.reply(track.url)
 
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        # Partially to make the bot not respond to itself
+        # and because bots talking to each other is gets annoying
+        if message.author.bot:
+            return
+
+        urls = re.findall("<?(?:https:|http:)\S+>?", message.content)
+        urls = tuple(filter(
+            lambda found_url: not found_url.startswith("<") and not found_url.endswith(">"),
+            urls
+        ))
+        if not urls:
+            return
+
+        disliked_platforms: list[str] = self.settings.disliked_platforms.value
+        preferred_platform_interface = self.api_interfaces.get(self.settings.preferred_platform.value)
+        if preferred_platform_interface is None:
+            raise ValueError("No valid preferred platform is set")
+
+        async def convert_url(url: str) -> str:
+            for platform_name, api_interface in self.api_interfaces.items():
+                if not await api_interface.is_valid_url(url):
+                    continue
+                elif platform_name not in disliked_platforms:
+                    break
+                query = await api_interface.url_to_query(url)
+                track = await preferred_platform_interface.search(query)
+                return track.url
+
+        converted_urls = tuple(filter(bool, await asyncio.gather(*map(convert_url, urls))))
+        if converted_urls:
+            await message.reply(" ".join(converted_urls))
 
 async def setup(bot: breadcord.Bot):
     await bot.add_cog(NoSpotify("no_spotify"))

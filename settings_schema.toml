@@ -4,6 +4,10 @@ search_messages = true
 # Platforms that are supported by the bot
 active_platforms = ["spotify", "youtube"]
 
+preferred_platform = "youtube"
+disliked_platforms = ["spotify"]
+
+
 [spotify]
 # Used to obtain an api key
 # https://developer.spotify.com/documentation/web-api/tutorials/getting-started#create-an-app
