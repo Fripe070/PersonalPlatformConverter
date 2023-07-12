@@ -117,9 +117,14 @@ class NoSpotify(breadcord.module.ModuleCog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
+        disliked_platforms: list[str] = self.settings.disliked_platforms.value
+        preferred_platform_interface = self.api_interfaces.get(self.settings.preferred_platform.value)
+        if preferred_platform_interface is None:
+            raise ValueError("No valid preferred platform is set")
+
         # Partially to make the bot not respond to itself
         # and because bots talking to each other is gets annoying
-        if message.author.bot:
+        if message.author.bot or not disliked_platforms:
             return
 
         urls = re.findall("<?(?:https:|http:)\S+>?", message.content)
@@ -129,11 +134,6 @@ class NoSpotify(breadcord.module.ModuleCog):
         ))
         if not urls:
             return
-
-        disliked_platforms: list[str] = self.settings.disliked_platforms.value
-        preferred_platform_interface = self.api_interfaces.get(self.settings.preferred_platform.value)
-        if preferred_platform_interface is None:
-            raise ValueError("No valid preferred platform is set")
 
         async def convert_url(url: str) -> str:
             for platform_name, api_interface in self.api_interfaces.items():

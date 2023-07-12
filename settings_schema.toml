@@ -4,7 +4,9 @@ search_messages = true
 # Platforms that are supported by the bot
 active_platforms = ["spotify", "youtube"]
 
+# What platform the bot should automatically convert URLs to
 preferred_platform = "youtube"
+# What platforms should have their URLs automatically converted when found in a message
 disliked_platforms = ["spotify"]
 
 
