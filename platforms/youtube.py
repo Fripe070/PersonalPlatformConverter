@@ -3,8 +3,8 @@ import re
 # noinspection PyFromFutureImport
 from youtubesearchpython.__future__ import VideosSearch, Video
 
-from .abc import AbstractAPI, UniversalTrack
-from .errors import InvalidURLError
+from ..abc import AbstractAPI, UniversalTrack
+from ..errors import InvalidURLError
 
 
 class YoutubeAPI(AbstractAPI):
@@ -25,7 +25,7 @@ class YoutubeAPI(AbstractAPI):
         ):
             return matches[0]
         else:
-            raise InvalidURLError("Invalid youtube video url")
+            raise InvalidURLError("Invalid Youtube video url")
 
     async def url_to_query(self, video_url: str, /) -> str:
         video = await Video.getInfo(self.extract_video_id(video_url))

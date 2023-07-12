@@ -4,8 +4,9 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 import breadcord
-from .apis import AbstractAPI, AbstractOAuthAPI, SpotifyAPI, YoutubeAPI
-from .apis.errors import InvalidURLError
+from .abc import AbstractAPI, AbstractOAuthAPI
+from .errors import InvalidURLError
+from .platforms import SpotifyAPI, YoutubeAPI
 
 APIInterfaces = AbstractAPI | AbstractOAuthAPI
 

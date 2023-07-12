@@ -1,8 +1,8 @@
 import re
 from datetime import timedelta, datetime
 
-from .abc import AbstractOAuthAPI, UniversalTrack, UniversalAlbum
-from .errors import InvalidURLError
+from ..abc import AbstractOAuthAPI, UniversalTrack, UniversalAlbum
+from ..errors import InvalidURLError
 
 
 class SpotifyAPI(AbstractOAuthAPI):
@@ -30,7 +30,7 @@ class SpotifyAPI(AbstractOAuthAPI):
         if matches := re.match(r"https?://open\.spotify\.com/track/(\w+)", track_url, flags=re.ASCII):
             return matches[0]
         else:
-            raise InvalidURLError("Invalid spotify track url")
+            raise InvalidURLError("Invalid Spotify track url")
 
     async def url_to_query(self, track_url: str, /) -> str | None:
         async with self.session.get(
