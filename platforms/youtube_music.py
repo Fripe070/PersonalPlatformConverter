@@ -1,7 +1,8 @@
 import re
 
+from .youtube import YoutubeAPI
 from ..abc import UniversalTrack
-from ... import YoutubeAPI, InvalidURLError
+from ..errors import InvalidURLError
 
 
 class YoutubeMusicAPI(YoutubeAPI):
@@ -16,11 +17,7 @@ class YoutubeMusicAPI(YoutubeAPI):
         else:
             raise InvalidURLError("Invalid Youtube Music url")
 
-
     async def search(self, query: str, /) -> UniversalTrack | None:
         track = await super().search(query)
-        # We only match "youtu" to account for both shortened (youtu.be) and normal (youtube.com) urls
-        track.url = re.sub(r"^https?://(www\.)?youtu", r"^https://music.youtu", track.url)
-
+        track.url = re.sub(r"^https?://(www\.)?(youtu\.be|youtube.[a-z]+)", r"^https://music.youtube.com", track.url)
         return track
-
