@@ -6,7 +6,7 @@ from discord.ext import commands, tasks
 import breadcord
 from .abc import AbstractAPI, AbstractOAuthAPI
 from .errors import InvalidURLError
-from .platforms import SpotifyAPI, YoutubeAPI
+from .platforms import *
 
 APIInterfaces = AbstractAPI | AbstractOAuthAPI
 
@@ -18,7 +18,8 @@ class NoSpotify(breadcord.module.ModuleCog):
         self.session: None | aiohttp.ClientSession = None
         self.api_interfaces: dict[str, APIInterfaces | type[APIInterfaces]] = {
             "spotify": SpotifyAPI,
-            "youtube": YoutubeAPI
+            "youtube": YoutubeAPI,
+            "youtube_music": YoutubeMusicAPI,
         }
 
         self.refresh_access_tokens.start()
