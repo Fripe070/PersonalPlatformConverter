@@ -59,7 +59,7 @@ class SpotifyAPI(AbstractOAuthAPI):
         async with self.session.get(
             f"{self.api_base}/search",
             headers={"Authorization": f"Bearer {self._token}"},
-            params={"q": query, "type": "track", "limit": 1}
+            params={"q": query, "type": "track"}
         ) as response:
             if response.status == 401:
                 raise RuntimeError("Invalid spotify token")

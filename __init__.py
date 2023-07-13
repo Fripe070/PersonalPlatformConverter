@@ -11,7 +11,14 @@ from .abc import AbstractAPI, AbstractOAuthAPI
 from .errors import InvalidURLError
 from .platforms import *
 
-APIInterfaces = AbstractAPI | AbstractOAuthAPI
+APIInterface = AbstractAPI | AbstractOAuthAPI
+
+
+class PlatformConverter(commands.Converter):
+    async def convert(self, ctx: commands.Context, argument: str) -> APIInterface | None:
+        # This should only ever be used in this cog, and thus we know that ctx.cog will never be None
+        # noinspection PyUnresolvedReferences
+        return ctx.cog.api_interfaces.get(argument)
 
 
 class NoSpotify(breadcord.module.ModuleCog):
@@ -19,7 +26,7 @@ class NoSpotify(breadcord.module.ModuleCog):
         super().__init__(module_id)
 
         self.session: None | aiohttp.ClientSession = None
-        self.api_interfaces: dict[str, APIInterfaces | type[APIInterfaces]] = {
+        self.api_interfaces: dict[str, APIInterface | type[APIInterface]] = {
             "spotify": SpotifyAPI,
             "youtube": YoutubeAPI,
             "youtube_music": YoutubeMusicAPI,
@@ -29,10 +36,10 @@ class NoSpotify(breadcord.module.ModuleCog):
 
     async def cog_load(self) -> None:
         self.session = aiohttp.ClientSession()
-        handled_api_interfaces: dict[str, APIInterfaces] = {}
+        handled_api_interfaces: dict[str, APIInterface] = {}
 
         for platform_name in self.settings.active_platforms.value:
-            api_interface: type[APIInterfaces] | None = self.api_interfaces.get(platform_name)
+            api_interface: type[APIInterface] | None = self.api_interfaces.get(platform_name)
             if api_interface is None:
                 self.logger.warning(f"Unknown platform {platform_name}")
                 continue
@@ -60,26 +67,19 @@ class NoSpotify(breadcord.module.ModuleCog):
                 await api.refresh_access_token()
                 self.logger.debug(f"Refreshed {api.__class__.__name__} access token")
 
+    # noinspection PyUnusedLocal
     async def platform_autocomplete(
         self,
         interaction: discord.Interaction,
         current: str
     ) -> list[app_commands.Choice[str]]:
-        self.api_interfaces: dict[str, APIInterfaces]
-
-        if not current:
-            return [
-                app_commands.Choice(name=platform_name, value=platform_name)
-                for platform_name in self.api_interfaces
-            ][:25]
-
         return [
-            app_commands.Choice(name=platform_name, value=platform_name)
-            for platform_name in breadcord.helpers.search_for(
-                query=current,
-                objects=list(self.api_interfaces.keys()),
+            app_commands.Choice(name=platform, value=platform)
+            for platform in breadcord.helpers.search_for(
+                current,
+                tuple(self.api_interfaces.keys())
             )
-        ][:25]
+        ]
 
     # noinspection PyIncorrectDocstring
     @commands.hybrid_command()
@@ -93,11 +93,11 @@ class NoSpotify(breadcord.module.ModuleCog):
         Parameters
         -----------
         from_platform: str
-            the platform to convert from
+            The platform to convert from
         to_platform: str
-            the platform to convert to
+            The platform to convert to
         url: str
-            the url to the track to convert
+            The url to the track to convert
         """
 
         if url.startswith("<") and url.endswith(">"):
@@ -148,6 +148,31 @@ class NoSpotify(breadcord.module.ModuleCog):
         converted_urls = tuple(filter(bool, await asyncio.gather(*map(convert_url, urls))))
         if converted_urls:
             await message.reply(" ".join(converted_urls))
+
+    # noinspection PyIncorrectDocstring
+    @commands.hybrid_command()
+    @app_commands.autocomplete(platform=platform_autocomplete) # type: ignore
+    async def search(self, ctx: commands.Context, platform: PlatformConverter, *, query: str):
+        """Search for music/videos across several platforms
+
+        Parameters
+        -----------
+        platform: APIInterface
+            The platform to search on
+        query: str
+            Your search query
+        """
+        platform: APIInterface | None
+        if platform is None:
+            await ctx.reply("Invalid platform! Available platforms are: " + ", ".join(map(
+                lambda x: f"`{x}`",
+                self.api_interfaces
+            )))
+            return
+
+        results = await platform.search(query)
+        await ctx.reply(" \n".join(result.url for result in results[:5]))
+
 
 async def setup(bot: breadcord.Bot):
     await bot.add_cog(NoSpotify("no_spotify"))

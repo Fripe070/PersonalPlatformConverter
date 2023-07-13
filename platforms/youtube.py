@@ -42,7 +42,7 @@ class YoutubeAPI(AbstractAPI):
     async def search(self, query: str, /) -> list[UniversalTrack] | None:
         videos = filter(
             lambda vid: vid["type"] == "video",
-            (await VideosSearch(query, limit=1).next())["result"],
+            (await VideosSearch(query).next())["result"],
         )
         return [
             UniversalTrack(
