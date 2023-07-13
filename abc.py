@@ -75,7 +75,7 @@ class AbstractAPI(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def search(self, query: str, /) -> UniversalTrack | None:
+    async def search(self, query: str, /) -> list[UniversalTrack] | None:
         raise NotImplementedError
 
     @abstractmethod

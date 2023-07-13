@@ -55,7 +55,7 @@ class SpotifyAPI(AbstractOAuthAPI):
         track_artists = [artist["name"] for artist in track_data["artists"]]
         return f"{track_data['name']} {' '.join(track_artists)}"
 
-    async def search(self, query: str, /) -> UniversalTrack | None:
+    async def search(self, query: str, /) -> list[UniversalTrack] | None:
         async with self.session.get(
             f"{self.api_base}/search",
             headers={"Authorization": f"Bearer {self._token}"},
@@ -65,25 +65,28 @@ class SpotifyAPI(AbstractOAuthAPI):
                 raise RuntimeError("Invalid spotify token")
             elif response.status != 200:
                 return None
-            track = (await response.json())["tracks"]["items"][0]
+            tracks = (await response.json())["tracks"]["items"]
 
-        return UniversalTrack(
-            title=track["name"],
-            artist_names=[artist["name"] for artist in track["artists"]],
-            album=UniversalAlbum(
-                title=album["name"],
-                artist_names=[artist["name"] for artist in album["artists"]],
-                url=album["external_urls"].get("spotify"),
+        return [
+            UniversalTrack(
+                title=track["name"],
+                artist_names=[artist["name"] for artist in track["artists"]],
+                album=UniversalAlbum(
+                    title=album["name"],
+                    artist_names=[artist["name"] for artist in album["artists"]],
+                    url=album["external_urls"].get("spotify"),
+                    cover_url=max(
+                        album["images"],
+                        key=lambda image: image.get("width", 0) * image.get("height", 0)
+                    )["url"],
+                    release_date=album["release_date"],
+                ) if (album := track.get("album", {})).get("album_type") == "album" else None,
+                url=track["external_urls"].get("spotify"),
                 cover_url=max(
-                    album["images"],
+                    track["album"]["images"],
                     key=lambda image: image.get("width", 0) * image.get("height", 0)
-                )["url"],
-                release_date=album["release_date"],
-            ) if (album := track.get("album", {})).get("album_type") == "album" else None,
-            url=track["external_urls"].get("spotify"),
-            cover_url=max(
-                track["album"]["images"],
-                key=lambda image: image.get("width", 0) * image.get("height", 0)
-            )["url"]
-        )
+                )["url"]
+            )
+            for track in tracks
+        ]
 

@@ -112,8 +112,8 @@ class NoSpotify(breadcord.module.ModuleCog):
             await ctx.reply("Invalid url")
             return
 
-        track = await to_platform.search(query)
-        await ctx.reply(track.url)
+        tracks = await to_platform.search(query)
+        await ctx.reply(tracks[0].url)
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -142,8 +142,8 @@ class NoSpotify(breadcord.module.ModuleCog):
                 elif platform_name not in disliked_platforms:
                     break
                 query = await api_interface.url_to_query(url)
-                track = await preferred_platform_interface.search(query)
-                return track.url
+                tracks = await preferred_platform_interface.search(query)
+                return tracks[0].url
 
         converted_urls = tuple(filter(bool, await asyncio.gather(*map(convert_url, urls))))
         if converted_urls:
