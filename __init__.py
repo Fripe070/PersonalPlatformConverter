@@ -1,72 +1,18 @@
 import asyncio
 import re
 
-import aiohttp
 import discord
 from discord import app_commands
-from discord.ext import commands, tasks
+from discord.ext import commands
 
 import breadcord
-from .abc import AbstractAPI, AbstractOAuthAPI
-from .errors import InvalidURLError
-from .platforms import *
-
-APIInterface = AbstractAPI | AbstractOAuthAPI
-
-
-class PlatformConverter(commands.Converter):
-    async def convert(self, ctx: commands.Context, argument: str) -> APIInterface | None:
-        # This should only ever be used in this cog, and thus we know that ctx.cog will never be None
-        # noinspection PyUnresolvedReferences
-        return ctx.cog.api_interfaces.get(argument)
+from .api import helpers
+from .api.abc import AbstractAPI, AbstractOAuthAPI
+from .api.errors import InvalidURLError
+from .api.types import APIInterface
 
 
-class NoSpotify(breadcord.module.ModuleCog):
-    def __init__(self, module_id: str, /):
-        super().__init__(module_id)
-
-        self.session: None | aiohttp.ClientSession = None
-        self.api_interfaces: dict[str, APIInterface | type[APIInterface]] = {
-            "spotify": SpotifyAPI,
-            "youtube": YoutubeAPI,
-            "youtube_music": YoutubeMusicAPI,
-        }
-
-        self.refresh_access_tokens.start()
-
-    async def cog_load(self) -> None:
-        self.session = aiohttp.ClientSession()
-        handled_api_interfaces: dict[str, APIInterface] = {}
-
-        for platform_name in self.settings.active_platforms.value:
-            api_interface: type[APIInterface] | None = self.api_interfaces.get(platform_name)
-            if api_interface is None:
-                self.logger.warning(f"Unknown platform {platform_name}")
-                continue
-
-            if issubclass(api_interface, AbstractOAuthAPI):
-                platform_settings: breadcord.config.SettingsGroup = getattr(self.settings, platform_name)
-                handled_api_interfaces[platform_name] = api_interface(
-                    client_id=platform_settings.client_id.value,
-                    client_secret=platform_settings.client_secret.value,
-                    session=self.session
-                )
-            elif issubclass(api_interface, AbstractAPI):
-                handled_api_interfaces[platform_name] = api_interface(session=self.session)
-
-        self.api_interfaces = handled_api_interfaces
-
-    async def cog_unload(self) -> None:
-        await self.session.close()
-
-    @tasks.loop(minutes=20)
-    async def refresh_access_tokens(self):
-        for api in self.api_interfaces.values():
-            if hasattr(api, "refresh_access_token"):
-                self.logger.debug(f"Refreshing {api.__class__.__name__} access token")
-                await api.refresh_access_token()
-                self.logger.debug(f"Refreshed {api.__class__.__name__} access token")
-
+class NoSpotify(helpers.PlatformAPICog):
     # noinspection PyUnusedLocal
     async def platform_autocomplete(
         self,
@@ -152,7 +98,7 @@ class NoSpotify(breadcord.module.ModuleCog):
     # noinspection PyIncorrectDocstring
     @commands.hybrid_command()
     @app_commands.autocomplete(platform=platform_autocomplete) # type: ignore
-    async def search(self, ctx: commands.Context, platform: PlatformConverter, *, query: str):
+    async def search(self, ctx: commands.Context, platform: helpers.PlatformConverter, *, query: str):
         """Search for music/videos across several platforms
 
         Parameters
