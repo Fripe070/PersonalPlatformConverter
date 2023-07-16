@@ -3,8 +3,8 @@ import re
 # noinspection PyFromFutureImport
 from youtubesearchpython.__future__ import VideosSearch, Video
 
-from data.modules.no_spotify.api.abc import AbstractAPI, UniversalTrack
-from data.modules.no_spotify.api.errors import InvalidURLError
+from ..abc import AbstractAPI, UniversalTrack
+from ..errors import InvalidURLError
 
 
 class YoutubeAPI(AbstractAPI):

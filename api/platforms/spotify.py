@@ -1,8 +1,8 @@
 import re
 from datetime import timedelta, datetime
 
-from data.modules.no_spotify.api.abc import AbstractOAuthAPI, UniversalTrack, UniversalAlbum
-from data.modules.no_spotify.api.errors import InvalidURLError
+from ..abc import AbstractOAuthAPI, UniversalTrack, UniversalAlbum
+from ..errors import InvalidURLError
 
 
 class SpotifyAPI(AbstractOAuthAPI):

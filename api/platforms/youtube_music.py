@@ -1,8 +1,8 @@
 import re
 
-from data.modules.no_spotify.api.abc import UniversalTrack
-from data.modules.no_spotify.api.errors import InvalidURLError
 from .youtube import YoutubeAPI
+from ..abc import UniversalTrack
+from ..errors import InvalidURLError
 
 
 class YoutubeMusicAPI(YoutubeAPI):
