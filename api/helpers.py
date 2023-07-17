@@ -30,8 +30,6 @@ class PlatformAPICog(breadcord.module.ModuleCog):
             "youtube_music": YoutubeMusicAPI,
         }
 
-        self.refresh_access_tokens.start()
-
     async def cog_load(self) -> None:
         self.session = aiohttp.ClientSession()
         handled_api_interfaces: dict[str, APIInterface] = {}
@@ -53,6 +51,7 @@ class PlatformAPICog(breadcord.module.ModuleCog):
                 handled_api_interfaces[platform_name] = api_interface(session=self.session)
 
         self.api_interfaces = handled_api_interfaces
+        self.refresh_access_tokens.start()
 
     async def cog_unload(self) -> None:
         await self.session.close()

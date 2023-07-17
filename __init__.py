@@ -13,6 +13,15 @@ from .api.types import APIInterface
 
 
 class NoSpotify(helpers.PlatformAPICog):
+    def __init__(self, module_id: str):
+        super().__init__(module_id)
+
+        self.ctx_menu = app_commands.ContextMenu(
+            name='Convert music/video URLs',
+            callback=self.url_convert_ctx_menu,
+        )
+        self.bot.tree.add_command(self.ctx_menu)
+
     # noinspection PyUnusedLocal
     async def platform_autocomplete(
         self,
@@ -63,6 +72,14 @@ class NoSpotify(helpers.PlatformAPICog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
+        if urls := await self.convert_message_urls(message):
+            await message.reply(urls, mention_author=False)
+
+    async def url_convert_ctx_menu(self, interaction: discord.Interaction, message: discord.Message) -> None:
+        await interaction.response.defer(thinking=True, ephemeral=True)
+        await interaction.followup.send(await self.convert_message_urls(message) or "Nothing to convert")
+
+    async def convert_message_urls(self, message: discord.Message) -> str | None:
         disliked_platforms: list[str] = self.settings.disliked_platforms.value
         preferred_platform_interface = self.api_interfaces.get(self.settings.preferred_platform.value)
         if preferred_platform_interface is None:
@@ -92,8 +109,7 @@ class NoSpotify(helpers.PlatformAPICog):
                 return tracks[0].url
 
         converted_urls = tuple(filter(bool, await asyncio.gather(*map(convert_url, urls))))
-        if converted_urls:
-            await message.reply(" ".join(converted_urls))
+        return " ".join(converted_urls) or None
 
     # noinspection PyIncorrectDocstring
     @commands.hybrid_command()
