@@ -17,7 +17,7 @@ class NoSpotify(helpers.PlatformAPICog):
         super().__init__(module_id)
 
         self.ctx_menu = app_commands.ContextMenu(
-            name='Convert music/video URLs',
+            name="Convert music/video URLs",
             callback=self.url_convert_ctx_menu,
         )
         self.bot.tree.add_command(self.ctx_menu)
@@ -114,7 +114,7 @@ class NoSpotify(helpers.PlatformAPICog):
     # noinspection PyIncorrectDocstring
     @commands.hybrid_command()
     @app_commands.autocomplete(platform=platform_autocomplete) # type: ignore
-    async def search(self, ctx: commands.Context, platform: helpers.PlatformConverter, *, query: str):
+    async def search(self, ctx: commands.Context, platform: helpers.PlatformConverter, *, query: str, count: int = 5):
         """Search for music/videos across several platforms
 
         Parameters
@@ -123,6 +123,8 @@ class NoSpotify(helpers.PlatformAPICog):
             The platform to search on
         query: str
             Your search query
+        count: int
+            The maximum amount of urls to return
         """
         platform: APIInterface | None
         if platform is None:
@@ -133,7 +135,7 @@ class NoSpotify(helpers.PlatformAPICog):
             return
 
         results = await platform.search(query)
-        await ctx.reply(" \n".join(result.url for result in results[:5]))
+        await ctx.reply(" \n".join(result.url for result in results[:max(1, count)]))
 
 
 async def setup(bot: breadcord.Bot):
