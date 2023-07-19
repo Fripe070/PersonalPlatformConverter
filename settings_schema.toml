@@ -2,6 +2,7 @@
 search_messages = true
 
 # Platforms that are supported by the bot
+# Supported platforms are: spotify, youtube, youtube_music, beatsaver
 active_platforms = ["spotify", "youtube"]
 
 # What platform the bot should automatically convert URLs to

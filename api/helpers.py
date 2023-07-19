@@ -28,6 +28,7 @@ class PlatformAPICog(breadcord.module.ModuleCog):
             "spotify": SpotifyAPI,
             "youtube": YoutubeAPI,
             "youtube_music": YoutubeMusicAPI,
+            "beatsaver": BeatSaverAPI,
         }
 
     async def cog_load(self) -> None:

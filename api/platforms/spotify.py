@@ -40,7 +40,7 @@ class SpotifyAPI(AbstractOAuthAPI):
         else:
             return True
 
-    async def url_to_query(self, track_url: str, /) -> str | None:
+    async def url_to_query(self, track_url: str, /) -> str:
         async with self.session.get(
             f"{self.api_base}/tracks/{self.extract_track_id(track_url)}",
             headers={"Authorization": f"Bearer {self._token}"}
@@ -48,8 +48,7 @@ class SpotifyAPI(AbstractOAuthAPI):
             if response.status == 401:
                 raise RuntimeError("Invalid spotify token")
             elif response.status != 200:
-                print(response.status, response.content)
-                return None
+                raise RuntimeError("Could not get track data")
             track_data = await response.json()
 
         track_artists = [artist["name"] for artist in track_data["artists"]]
