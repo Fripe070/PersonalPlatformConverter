@@ -1,14 +1,16 @@
 import aiohttp
+import discord
 from discord.ext import commands, tasks
 
 import breadcord
-from .abc import AbstractOAuthAPI, AbstractAPI
+from .abc import AbstractOAuthAPI, AbstractAPI, UniversalTrack
 from .platforms import *
 from .types import APIInterface
 
 __all__ = [
     "PlatformConverter",
     "PlatformAPICog",
+    "track_embed"
 ]
 
 
@@ -66,3 +68,14 @@ class PlatformAPICog(breadcord.module.ModuleCog):
                 self.logger.debug(f"Refreshing {api.__class__.__name__} access token")
                 await api.refresh_access_token()
                 self.logger.debug(f"Refreshed {api.__class__.__name__} access token")
+
+
+def track_embed(track: UniversalTrack, *, random_colour: bool = False) -> discord.Embed:
+    return discord.Embed(
+        title=track.title.strip(),
+        url=track.url,
+        description=f"**Artist{'s' if len(track.artists) > 1 else ''}:** {', '.join(track.artists)}\n"
+                    f"**Album:** {track.album}",
+        colour=discord.Colour.random(seed=track.url) if random_colour else None
+    ).set_thumbnail(url=track.cover_url)
+

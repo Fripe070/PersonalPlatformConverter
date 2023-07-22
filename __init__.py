@@ -7,8 +7,9 @@ from discord.ext import commands
 
 import breadcord
 from .api import helpers
-from .api.abc import AbstractAPI, AbstractOAuthAPI
+from .api.abc import AbstractAPI, AbstractOAuthAPI, UniversalTrack
 from .api.errors import InvalidURLError
+from .api.helpers import track_embed
 from .api.types import APIInterface
 
 
@@ -114,8 +115,15 @@ class NoSpotify(helpers.PlatformAPICog):
     # noinspection PyIncorrectDocstring
     @commands.hybrid_command()
     @app_commands.autocomplete(platform=platform_autocomplete) # type: ignore
-    async def search(self, ctx: commands.Context, platform: helpers.PlatformConverter, *, query: str, count: int = 5):
-        """Search for music/videos across several platforms
+    async def search(
+        self,
+        ctx: commands.Context,
+        platform: helpers.PlatformConverter,
+        *, query: str | None = None,
+        count: int = 1,
+        compact_embeds: bool = False
+    ):
+        """Search for music/videos across several platforms¤
 
         Parameters
         -----------
@@ -127,7 +135,7 @@ class NoSpotify(helpers.PlatformAPICog):
             The maximum amount of urls to return
         """
         platform: APIInterface | None
-        if platform is None:
+        if platform is None or query is None:
             await ctx.reply("Invalid platform! Available platforms are: " + ", ".join(map(
                 lambda x: f"`{x}`",
                 self.api_interfaces
@@ -135,7 +143,13 @@ class NoSpotify(helpers.PlatformAPICog):
             return
 
         results = await platform.search(query)
-        await ctx.reply(" \n".join(result.url for result in results[:max(1, count)]))
+        if compact_embeds:
+            await ctx.reply(embeds=[
+                track_embed(result, random_colour=True)
+                for result in results[:min(10, max(1, count))]  # Limited to 10 due to embed limits
+            ])
+        else:
+            await ctx.reply(" ".join(result.url for result in results[:max(1, count)]))
 
 
 async def setup(bot: breadcord.Bot):
