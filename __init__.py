@@ -13,7 +13,7 @@ from .api.helpers import track_embed
 from .api.types import APIInterface
 
 
-class NoSpotify(helpers.PlatformAPICog):
+class PlatformConverter(helpers.PlatformAPICog):
     def __init__(self, module_id: str):
         super().__init__(module_id)
 
@@ -153,4 +153,4 @@ class NoSpotify(helpers.PlatformAPICog):
 
 
 async def setup(bot: breadcord.Bot):
-    await bot.add_cog(NoSpotify("no_spotify"))
+    await bot.add_cog(PlatformConverter("platform_converter"))

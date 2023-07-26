@@ -1,10 +1,10 @@
 manifest_version = 1
 
 [module]
-name = "No Spotify URLs"
-id = "no_spotify"
-description = "Get youtube video versions of spotify tracks"
-version = "3.0.0"
+name = "Platform Converter"
+id = "platform_converter"
+description = "Get versions of tracks and videos from different platforms"
+version = "4.0.0"
 license = "GNU GPLv3"
 authors = ["Fripe"]
 requirements = [
