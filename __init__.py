@@ -73,6 +73,8 @@ class PlatformConverter(helpers.PlatformAPICog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
+        if not self.settings.disliked_platforms.value:
+            return
         if urls := await self.convert_message_urls(message):
             await message.reply(urls, mention_author=False)
 
@@ -81,15 +83,9 @@ class PlatformConverter(helpers.PlatformAPICog):
         await interaction.followup.send(await self.convert_message_urls(message) or "Nothing to convert")
 
     async def convert_message_urls(self, message: discord.Message) -> str | None:
-        disliked_platforms: list[str] = self.settings.disliked_platforms.value
         preferred_platform_interface = self.api_interfaces.get(self.settings.preferred_platform.value)
         if preferred_platform_interface is None:
             raise ValueError("No valid preferred platform is set")
-
-        # Partially to make the bot not respond to itself
-        # and because bots talking to each other is gets annoying
-        if message.author.bot or not disliked_platforms:
-            return
 
         urls = re.findall("<?(?:https:|http:)\S+>?", message.content)
         urls = tuple(filter(
@@ -101,10 +97,8 @@ class PlatformConverter(helpers.PlatformAPICog):
 
         async def convert_url(url: str) -> str:
             for platform_name, api_interface in self.api_interfaces.items():
-                if not await api_interface.is_valid_url(url):
+                if api_interface == preferred_platform_interface or not await api_interface.is_valid_url(url):
                     continue
-                elif platform_name not in disliked_platforms:
-                    break
                 query = await api_interface.url_to_query(url)
                 tracks = await preferred_platform_interface.search(query)
                 return tracks[0].url
