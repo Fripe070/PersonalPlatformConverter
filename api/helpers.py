@@ -18,7 +18,7 @@ class PlatformConverter(commands.Converter):
     async def convert(self, ctx: commands.Context, argument: str) -> APIInterface | None:
         # This should only ever be used in this cog, and thus we know that ctx.cog will never be None
         # noinspection PyUnresolvedReferences
-        return ctx.cog.api_interfaces.get(argument)
+        return ctx.cog.api_interfaces.get(argument.strip())
 
 
 class PlatformAPICog(breadcord.module.ModuleCog):
@@ -74,7 +74,7 @@ def track_embed(track: UniversalTrack, *, random_colour: bool = False) -> discor
     return discord.Embed(
         title=track.title.strip(),
         url=track.url,
-        description=f"**Artist{'s' if len(track.artists) > 1 else ''}:** {', '.join(track.artists)}\n"
+        description=f"**Artist{'s' if len(track.artist_names) > 1 else ''}:** {', '.join(track.artist_names)}\n"
                     f"**Album:** {track.album}",
         colour=discord.Colour.random(seed=track.url) if random_colour else None
     ).set_thumbnail(url=track.cover_url)

@@ -1,4 +1,5 @@
 import asyncio
+import io
 import re
 
 import discord
@@ -7,9 +8,10 @@ from discord.ext import commands
 
 import breadcord
 from .api import helpers
-from .api.abc import AbstractAPI, AbstractOAuthAPI, UniversalTrack
+from .api.abc import AbstractAPI, AbstractOAuthAPI, UniversalTrack, AbstractPlaylistAPI
 from .api.errors import InvalidURLError
 from .api.helpers import track_embed
+from .api.platforms import SpotifyAPI
 from .api.types import APIInterface
 
 
@@ -97,7 +99,7 @@ class PlatformConverter(helpers.PlatformAPICog):
 
         async def convert_url(url: str) -> str:
             for platform_name, api_interface in self.api_interfaces.items():
-                if api_interface == preferred_platform_interface or not await api_interface.is_valid_url(url):
+                if api_interface == preferred_platform_interface or not await api_interface.is_valid_track_url(url):
                     continue
                 query = await api_interface.url_to_query(url)
                 tracks = await preferred_platform_interface.search(query)
@@ -113,7 +115,8 @@ class PlatformConverter(helpers.PlatformAPICog):
         self,
         ctx: commands.Context,
         platform: helpers.PlatformConverter,
-        *, query: str | None = None,
+        *,
+        query: str,
         count: int = 1,
         compact_embeds: bool = False
     ):
@@ -129,14 +132,14 @@ class PlatformConverter(helpers.PlatformAPICog):
             The maximum amount of urls to return
         """
         platform: APIInterface | None
-        if platform is None or query is None:
+        if platform is None:
             await ctx.reply("Invalid platform! Available platforms are: " + ", ".join(map(
                 lambda x: f"`{x}`",
                 self.api_interfaces
             )))
             return
 
-        results = await platform.search(query)
+        results = await platform.search_tracks(query)
         if compact_embeds:
             await ctx.reply(embeds=[
                 track_embed(result, random_colour=True)
@@ -144,6 +147,85 @@ class PlatformConverter(helpers.PlatformAPICog):
             ])
         else:
             await ctx.reply(" ".join(result.url for result in results[:max(1, count)]))
+
+    # noinspection PyUnusedLocal
+    async def playlist_platform_autocomplete(
+        self,
+        interaction: discord.Interaction,
+        current: str
+    ) -> list[app_commands.Choice[str]]:
+        return [
+            app_commands.Choice(name=platform, value=platform)
+            for platform in breadcord.helpers.search_for(
+                current,
+                [
+                    platform
+                    for platform, api_interface in self.api_interfaces.items()
+                    if isinstance(api_interface, AbstractPlaylistAPI)
+                ]
+            )
+        ]
+
+    @commands.hybrid_command()
+    @app_commands.autocomplete(platform=playlist_platform_autocomplete) # type: ignore
+    async def playlist(
+        self,
+        ctx: commands.Context,
+        platform: helpers.PlatformConverter,
+        playlist_url: str,
+        max_tracks: int = 15
+    ):
+        platform: APIInterface | None
+        if not isinstance(platform, AbstractPlaylistAPI):
+            await ctx.reply("Invalid platform! Available platforms with playlist support are: " + ", ".join([
+                f"`{platform}`"
+                for platform in self.api_interfaces
+                if isinstance(self.api_interfaces[platform], AbstractPlaylistAPI)
+            ]))
+            return
+
+        playlist = await platform.get_playlist_content(playlist_url)
+        if playlist is None:
+            await ctx.reply("Could not find that playlist. Ensure that it exists and is public.")
+            return
+
+        async with self.session.get(playlist.cover_url) as response:
+            cover = discord.File(
+                io.BytesIO(await response.read()),
+                filename="cover.png"
+            )
+
+        description = (discord.utils.escape_markdown(playlist.description.strip()) or "") + "\n\n**Tracks**"
+        for i, track in enumerate(playlist.tracks):
+            title = discord.utils.escape_markdown(track.title)
+            artists = ", ".join(map(discord.utils.escape_markdown, track.artist_names))
+
+            fallback_text = f"\n\nAnd {len(playlist.tracks) - i} more..." if i != len(playlist.tracks) - 1 else ""
+            addition = f"[{title}]({track.url}) - {artists}"
+            if len(description) + len(addition) + len(fallback_text) >= 4096 or i >= max_tracks:
+                description += fallback_text
+                break
+            description += f"\n{addition}"
+
+        await ctx.reply(
+            embed=discord.Embed(
+                title=playlist.name,
+                description=description,
+                url=playlist.url,
+                colour=discord.Colour.random(seed=playlist.url),
+            ).set_thumbnail(
+                url="attachment://cover.png"
+            ).set_footer(
+                text=f"By {', '.join(playlist.owner_names)}" if playlist.owner_names else None,
+            ),
+            file=cover
+        )
+
+    async def cog_command_error(self, ctx: commands.Context, error: Exception) -> None:
+        if isinstance(error, commands.MissingRequiredArgument):
+            await ctx.reply(str(error), ephemeral=True)
+            return
+        raise
 
 
 async def setup(bot: breadcord.Bot):

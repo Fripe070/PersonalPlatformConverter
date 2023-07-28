@@ -6,8 +6,7 @@ from ..errors import InvalidURLError
 
 
 class YoutubeMusicAPI(YoutubeAPI):
-    @staticmethod
-    def extract_video_id(video_url: str, /) -> str:
+    def extract_track_id(self, video_url: str, /) -> str:
         if matches := re.match(
             r"^(?:https?://)?music\.youtube\.com/watch\?v=([a-zA-Z0-9_\-]+)",
             video_url,
@@ -17,8 +16,8 @@ class YoutubeMusicAPI(YoutubeAPI):
         else:
             raise InvalidURLError("Invalid Youtube Music url")
 
-    async def search(self, query: str, /) -> list[UniversalTrack] | None:
-        tracks = await super().search(query)
+    async def search_tracks(self, query: str, /) -> list[UniversalTrack] | None:
+        tracks = await super().search_tracks(query)
         for track in tracks:
             track.url = re.sub(r"^https?://(www\.)?(youtu\.be|youtube.[a-z]+)", "^https://music.youtube.com", track.url)
         return tracks
