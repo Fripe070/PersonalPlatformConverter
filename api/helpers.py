@@ -72,12 +72,20 @@ class PlatformAPICog(breadcord.module.ModuleCog):
                 self.logger.debug(f"Refreshed {api.__class__.__name__} access token")
 
 
-def track_embed(track: UniversalTrack, *, random_colour: bool = False) -> discord.Embed:
+def track_embed(
+    track: UniversalTrack,
+    *,
+    random_colour: bool = False,
+    colour: discord.Colour | None = None
+) -> discord.Embed:
+    description = f"**Artist{'s' if len(track.artist_names) > 1 else ''}:** {', '.join(track.artist_names)}"
+    if track.album:
+        description += f"\n**Album:** {track.album}"
+
     return discord.Embed(
         title=track.title.strip(),
         url=track.url,
-        description=f"**Artist{'s' if len(track.artist_names) > 1 else ''}:** {', '.join(track.artist_names)}\n"
-                    f"**Album:** {track.album}",
-        colour=discord.Colour.random(seed=track.url) if random_colour else None
+        description=description,
+        colour=discord.Colour.random(seed=track.url) if random_colour else colour
     ).set_thumbnail(url=track.cover_url)
 
