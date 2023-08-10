@@ -108,7 +108,7 @@ class PlatformConverter(helpers.PlatformAPICog):
                 if api_interface == preferred_platform_interface or not await api_interface.is_valid_track_url(url):
                     continue
                 query = await api_interface.url_to_query(url)
-                tracks = await preferred_platform_interface.search(query)
+                tracks = await preferred_platform_interface.search_tracks(query)
                 return tracks[0].url
 
         converted_urls = tuple(filter(bool, await asyncio.gather(*map(convert_url, urls))))
