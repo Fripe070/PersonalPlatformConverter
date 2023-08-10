@@ -309,6 +309,28 @@ class PlatformConverter(helpers.PlatformAPICog):
         await msg.add_reaction("\N{WHITE HEAVY CHECK MARK}")
         await msg.add_reaction("\N{NEGATIVE SQUARED CROSS MARK}")
 
+    @commands.hybrid_command()
+    @app_commands.checks.cooldown(1, 10)
+    async def community_playlist(self, ctx: commands.Context):
+        track_urls = self.db_cursor.execute(
+            # language=SQLite
+            "SELECT track_url FROM community_playlist WHERE rejected = 0"
+        ).fetchall()
+        if not track_urls:
+            await ctx.reply("The community playlist is empty.")
+            return
+        track_urls = [track_url[0] for track_url in track_urls]
+
+        msg_content = "## Community playlist\n"
+        for i, track_url in enumerate(track_urls, start=1):
+            additions = f"{i}. <{track_url}>\n"
+            if len(msg_content) + len(additions) >= 2000:
+                await ctx.reply(msg_content, mention_author=False)
+                msg_content = ""
+            msg_content += additions
+        await ctx.reply(msg_content, mention_author=False)
+
+
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
         await self.handle_reactions(payload, True)
