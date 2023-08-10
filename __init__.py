@@ -1,5 +1,6 @@
 import asyncio
 import re
+import sqlite3
 
 import discord
 from discord import app_commands
@@ -17,6 +18,20 @@ from .api.types import APIInterface
 class PlatformConverter(helpers.PlatformAPICog):
     def __init__(self, module_id: str):
         super().__init__(module_id)
+
+        self.logger.debug("Creating database")
+        self.db_connection = sqlite3.connect(self.module.storage_path / "platform_converter.db")
+        self.db_cursor = self.db_connection.cursor()
+        self.db_cursor.execute(
+            "CREATE TABLE IF NOT EXISTS community_playlist ("
+            "    track_url TEXT UNIQUE,"
+            "    addition_author_id INTEGER,"
+            "    rejected INT,"
+            "    PRIMARY KEY (track_url)"
+            ")"
+        )
+        self.db_connection.commit()
+        self.logger.debug("Database created")
 
         self.ctx_menu = app_commands.ContextMenu(
             name="Convert music/video URLs",
@@ -241,6 +256,142 @@ class PlatformConverter(helpers.PlatformAPICog):
             file=cover
         )
 
+    @commands.hybrid_command(aliases=["pl_add", "pladd"])
+    async def add_to_playlist(self, ctx: commands.Context, track_url_to_add: str):
+        community_playlist_channel = self.bot.get_channel(int(self.settings.community_playlist_channel_id.value))
+        if not community_playlist_channel or ctx.guild != community_playlist_channel.guild:
+            await ctx.reply("This command is usable here.")
+            return
+
+        async def get_standardised_track(url: str) -> UniversalTrack | None:
+            preferred_platform_interface = self.api_interfaces[self.settings.preferred_platform.value]
+            for api_interface in self.api_interfaces.values():
+                if not await api_interface.is_valid_track_url(url):
+                    continue
+                query = await api_interface.url_to_query(url)
+                tracks = await preferred_platform_interface.search_tracks(query)
+                return tracks[0]
+            return None
+
+        track = await get_standardised_track(track_url_to_add)
+        del track_url_to_add
+
+        if track is None:
+            await ctx.reply("Invalid track URL.")
+            return
+
+        result = self.db_cursor.execute(
+            # langauge=SQLite
+            "SELECT track_url, rejected FROM community_playlist WHERE track_url = ?",
+            (track.url,)
+        ).fetchone()
+        if result is not None:
+            if result[1]:
+                await ctx.reply("That track has already been rejected.")
+                return
+            await ctx.reply("That track is already in the community playlist.")
+            return
+
+        self.db_cursor.execute(
+            # language=SQLite
+            (
+                "INSERT INTO community_playlist (track_url, addition_author_id, rejected)"
+                "VALUES (?, ?, ?)"
+            ),
+            (
+                track.url,
+                ctx.author.id,
+                0 # false
+            )
+        )
+        self.db_connection.commit()
+
+        await ctx.reply("Added to the community playlist!")
+        msg = await community_playlist_channel.send(
+            "New track added to the community playlist!",
+            embed=discord.Embed(
+                title=track.title.strip(),
+                url=track.url,
+                description=f"**Artist{'s' if len(track.artist_names) > 1 else ''}:** {', '.join(track.artist_names)}",
+                colour=discord.Colour.green()
+            ).set_thumbnail(
+                url=track.cover_url
+            ).set_footer(
+                text=f"Added by {ctx.author.display_name}",
+            )
+        )
+        await msg.add_reaction("\N{WHITE HEAVY CHECK MARK}")
+        await msg.add_reaction("\N{NEGATIVE SQUARED CROSS MARK}")
+
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
+        await self.handle_reactions(payload, True)
+
+    @commands.Cog.listener()
+    async def on_raw_reaction_remove(self, payload: discord.RawReactionActionEvent):
+        await self.handle_reactions(payload, False)
+
+    async def handle_reactions(self, payload: discord.RawReactionActionEvent, add: bool):
+        if payload.channel_id != int(self.settings.community_playlist_channel_id.value):
+            return
+        if not (channel := self.bot.get_channel(payload.channel_id)):
+            return
+        if not (message := await channel.fetch_message(payload.message_id)):
+            return
+        if payload.emoji.name not in ["\N{WHITE HEAVY CHECK MARK}", "\N{NEGATIVE SQUARED CROSS MARK}"]:
+            return
+
+        score = 0
+        for reaction in message.reactions:
+            if reaction.emoji == "\N{WHITE HEAVY CHECK MARK}":
+                score += reaction.count
+            elif reaction.emoji == "\N{NEGATIVE SQUARED CROSS MARK}":
+                score -= reaction.count
+            else:
+                print(reaction.emoji)
+
+        message_embed = message.embeds[0]
+        def reconstruct_embed_with_colour(colour: discord.Colour) -> discord.Embed:
+            return discord.Embed(
+                title=message_embed.title,
+                url=message_embed.url,
+                description=message_embed.description,
+                colour=colour
+            ).set_thumbnail(
+                url=message_embed.thumbnail.url
+            ).set_footer(
+                text=message_embed.footer.text,
+                icon_url=message_embed.footer.icon_url
+            )
+
+        gets_denied_at_score = -1
+
+        if message_embed.colour != discord.Colour.red() and score <= gets_denied_at_score:
+            self.db_cursor.execute(
+                # language=SQLite
+                "UPDATE community_playlist SET rejected = 1 WHERE track_url = ?",
+                (message.embeds[0].url,)
+            )
+            self.db_connection.commit()
+            await message.edit(
+                content="This track has been rejected.",
+                embed=reconstruct_embed_with_colour(discord.Colour.red())
+            )
+            return
+        elif message_embed.colour == discord.Colour.red() and score > gets_denied_at_score:
+            self.db_cursor.execute(
+                # language=SQLite
+                "UPDATE community_playlist SET rejected = 0 WHERE track_url = ?",
+                (message.embeds[0].url,)
+            )
+            self.db_connection.commit()
+            await message.edit(
+                content="This track has been re-accepted.",
+                embed=reconstruct_embed_with_colour(discord.Colour.green())
+            )
+            return
+
+
     async def cog_command_error(self, ctx: commands.Context, error: Exception) -> None:
         if isinstance(error, commands.MissingRequiredArgument):
             await ctx.reply(str(error), ephemeral=True)
@@ -249,4 +400,4 @@ class PlatformConverter(helpers.PlatformAPICog):
 
 
 async def setup(bot: breadcord.Bot):
-    await bot.add_cog(PlatformConverter("platform_converter"))
+    await bot.add_cog(PlatformConverter("platform_converter_fripe_fork"))
