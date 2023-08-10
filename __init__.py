@@ -5,13 +5,14 @@ import sqlite3
 import discord
 from discord import app_commands
 from discord.ext import commands
+from youtubesearchpython.__future__ import Video
 
 import breadcord
 from .api import helpers
 from .api.abc import AbstractAPI, AbstractOAuthAPI, UniversalTrack, AbstractPlaylistAPI
 from .api.errors import InvalidURLError
 from .api.helpers import track_embed, track_to_query, url_to_file
-from .api.platforms import SpotifyAPI
+from .api.platforms import SpotifyAPI, YoutubeAPI
 from .api.types import APIInterface
 
 
@@ -268,6 +269,17 @@ class PlatformConverter(helpers.PlatformAPICog):
             for api_interface in self.api_interfaces.values():
                 if not await api_interface.is_valid_track_url(url):
                     continue
+                elif isinstance(api_interface, YoutubeAPI):
+                    video = await Video.getInfo(api_interface.extract_track_id(url))
+                    return UniversalTrack(
+                        title=video["title"],
+                        artist_names=[video["channel"]["name"]],
+                        url=video["link"],
+                        cover_url=max(
+                            video["thumbnails"],
+                            key=lambda image: image.get("width", 0) * image.get("height", 0)
+                        )["url"]
+                    )
                 query = await api_interface.url_to_query(url)
                 tracks = await preferred_platform_interface.search_tracks(query)
                 return tracks[0]
