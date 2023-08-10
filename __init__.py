@@ -372,7 +372,7 @@ class PlatformConverter(helpers.PlatformAPICog):
                 icon_url=message_embed.footer.icon_url
             )
 
-        gets_denied_at_score = -1
+        gets_denied_at_score = -2
 
         if message_embed.colour != discord.Colour.red() and score <= gets_denied_at_score:
             self.db_cursor.execute(
@@ -398,7 +398,6 @@ class PlatformConverter(helpers.PlatformAPICog):
                 embed=reconstruct_embed_with_colour(discord.Colour.green())
             )
             return
-
 
     async def cog_command_error(self, ctx: commands.Context, error: Exception) -> None:
         if isinstance(error, commands.MissingRequiredArgument):
