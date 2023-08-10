@@ -26,7 +26,9 @@ class PlatformAPICog(breadcord.module.ModuleCog):
         super().__init__(module_id)
 
         self.session: None | aiohttp.ClientSession = None
-        self.api_interfaces: dict[str, APIInterface | type[APIInterface]] = {
+        # Lie to make the type checker happy
+        # It will get sorted out in cog_load
+        self.api_interfaces: dict[str, APIInterface] = {
             "spotify": SpotifyAPI,
             "youtube": YoutubeAPI,
             "youtube_music": YoutubeMusicAPI,

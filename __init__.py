@@ -63,6 +63,9 @@ class PlatformConverter(helpers.PlatformAPICog):
 
         from_platform = self.api_interfaces.get(from_platform.lower())
         to_platform = self.api_interfaces.get(to_platform.lower())
+        if not all((from_platform, to_platform)):
+            await ctx.reply("Unknown platform")
+            return
 
         try:
             query = await from_platform.url_to_query(url)
@@ -70,7 +73,10 @@ class PlatformConverter(helpers.PlatformAPICog):
             await ctx.reply("Invalid url")
             return
 
-        tracks = await to_platform.search(query)
+        tracks = await to_platform.search_tracks(query)
+        if not tracks:
+            await ctx.reply("No results found")
+            return
         await ctx.reply(tracks[0].url)
 
     @commands.Cog.listener()

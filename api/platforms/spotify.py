@@ -65,7 +65,7 @@ class SpotifyAPI(AbstractOAuthAPI, AbstractPlaylistAPI):
                 raise RuntimeError("Could not get track data")
             track_data = await response.json()
 
-        track_artists = [artist["name"] for artist in track_data["artist_names"]]
+        track_artists = [artist["name"] for artist in track_data["artists"]]
         return f"{track_data['name']} {' '.join(track_artists)}"
 
     async def search_tracks(self, query: str, /) -> list[UniversalTrack] | None:
