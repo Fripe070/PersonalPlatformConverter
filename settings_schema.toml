@@ -1,3 +1,5 @@
+community_playlist_channel_id = ""
+
 # If the bot should search for URLs in sent messages
 search_messages = true
 
