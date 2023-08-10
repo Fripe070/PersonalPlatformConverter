@@ -174,7 +174,7 @@ class PlatformConverter(helpers.PlatformAPICog):
 
     @commands.hybrid_command()
     @app_commands.autocomplete(platform=playlist_platform_autocomplete) # type: ignore
-    async def playlist(
+    async def playlist_info(
         self,
         ctx: commands.Context,
         platform: helpers.PlatformConverter,
