@@ -2,7 +2,7 @@ manifest_version = 1
 
 [module]
 name = "Platform Converter"
-id = "platform_converter"
+id = "platform_converter_fripe_fork"
 description = "Get versions of tracks and videos from different platforms"
 version = "4.1.1"
 license = "GNU GPLv3"
