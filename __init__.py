@@ -1,5 +1,4 @@
 import asyncio
-import io
 import re
 
 import discord
@@ -10,7 +9,7 @@ import breadcord
 from .api import helpers
 from .api.abc import AbstractAPI, AbstractOAuthAPI, UniversalTrack, AbstractPlaylistAPI
 from .api.errors import InvalidURLError
-from .api.helpers import track_embed
+from .api.helpers import track_embed, track_to_query, url_to_file
 from .api.platforms import SpotifyAPI
 from .api.types import APIInterface
 
@@ -57,7 +56,6 @@ class PlatformConverter(helpers.PlatformAPICog):
         url: str
             The url to the track to convert
         """
-
         if url.startswith("<") and url.endswith(">"):
             url = url[1:-1]
 
@@ -68,10 +66,11 @@ class PlatformConverter(helpers.PlatformAPICog):
             return
 
         try:
-            query = await from_platform.url_to_query(url)
+            track_id = from_platform.get_track_id(url)
         except InvalidURLError:
             await ctx.reply("Invalid url")
             return
+        query = track_to_query(await from_platform.track_from_id(track_id))
 
         tracks = await to_platform.search_tracks(query)
         if not tracks:
@@ -104,10 +103,15 @@ class PlatformConverter(helpers.PlatformAPICog):
             return
 
         async def convert_url(url: str) -> str:
-            for platform_name, api_interface in self.api_interfaces.items():
-                if api_interface == preferred_platform_interface or not await api_interface.is_valid_track_url(url):
+            for api_interface in self.api_interfaces.values():
+                if api_interface == preferred_platform_interface:
                     continue
-                query = await api_interface.url_to_query(url)
+                try:
+                    track_id = api_interface.get_track_id(url)
+                except InvalidURLError:
+                    continue
+
+                query = track_to_query(await api_interface.track_from_id(track_id))
                 tracks = await preferred_platform_interface.search_tracks(query)
                 return tracks[0].url
 
@@ -147,10 +151,16 @@ class PlatformConverter(helpers.PlatformAPICog):
 
         results = await platform.search_tracks(query)
         if compact_embeds:
-            await ctx.reply(embeds=[
-                track_embed(result, random_colour=True)
-                for result in results[:min(10, max(1, count))]  # Limited to 10 due to embed limits
-            ])
+            embeds = []
+            files = []
+            for i, result in enumerate(results[:min(10, max(1, count))]):
+                result: UniversalTrack
+                files.append(discord.File(
+                    await url_to_file(result.cover_url, session=self.session),
+                    filename=f"{i}.png"
+                ))
+                embeds.append(track_embed(result, random_colour=True, cover_url=f"attachment://{i}.png"))
+            await ctx.reply(embeds=embeds, files=files)
         else:
             await ctx.reply(" ".join(result.url for result in results[:max(1, count)]))
 
@@ -181,7 +191,7 @@ class PlatformConverter(helpers.PlatformAPICog):
         playlist_url: str,
         max_tracks: int = 15
     ):
-        platform: APIInterface | None
+        platform: APIInterface | None  # guh
         if not isinstance(platform, AbstractPlaylistAPI):
             await ctx.reply("Invalid platform! Available platforms with playlist support are: " + ", ".join([
                 f"`{platform}`"
@@ -190,16 +200,15 @@ class PlatformConverter(helpers.PlatformAPICog):
             ]))
             return
 
-        playlist = await platform.get_playlist_content(playlist_url)
+        try:
+            playlist_id = platform.get_playlist_id(playlist_url)
+        except InvalidURLError:
+            await ctx.reply("Invalid playlist url")
+            return
+        playlist = await platform.get_playlist_content(playlist_id)
         if playlist is None:
             await ctx.reply("Could not find that playlist. Ensure that it exists and is public.")
             return
-
-        async with self.session.get(playlist.cover_url) as response:
-            cover = discord.File(
-                io.BytesIO(await response.read()),
-                filename="cover.png"
-            )
 
         description = (discord.utils.escape_markdown(playlist.description.strip()) or "") + "\n\n**Tracks**"
         for i, track in enumerate(playlist.tracks):
@@ -213,6 +222,10 @@ class PlatformConverter(helpers.PlatformAPICog):
                 break
             description += f"\n{addition}"
 
+        cover = discord.File(
+            await url_to_file(playlist.cover_url, session=self.session),
+            filename="cover.png"
+        )
         await ctx.reply(
             embed=discord.Embed(
                 title=playlist.name,

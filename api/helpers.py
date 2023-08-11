@@ -1,3 +1,5 @@
+import io
+
 import aiohttp
 import discord
 from discord.ext import commands, tasks
@@ -9,8 +11,17 @@ from .types import APIInterface
 __all__ = [
     "PlatformConverter",
     "PlatformAPICog",
-    "track_embed"
+    "track_embed",
+    "track_to_query",
+    "url_to_file"
 ]
+
+from .platforms import (
+    SpotifyAPI,
+    YoutubeAPI,
+    YoutubeMusicAPI,
+    BeatSaverAPI,
+)
 
 
 class PlatformConverter(commands.Converter):
@@ -75,7 +86,8 @@ def track_embed(
     track: UniversalTrack,
     *,
     random_colour: bool = False,
-    colour: discord.Colour | None = None
+    colour: discord.Colour | None = None,
+    cover_url: str | None = None,
 ) -> discord.Embed:
     description = f"**Artist{'s' if len(track.artist_names) > 1 else ''}:** {', '.join(track.artist_names)}"
     if track.album:
@@ -86,7 +98,14 @@ def track_embed(
         url=track.url,
         description=description,
         colour=discord.Colour.random(seed=track.url) if random_colour else colour
-    ).set_thumbnail(url=track.cover_url)
+    ).set_thumbnail(url=cover_url or track.cover_url)
+
 
 def track_to_query(track: UniversalTrack) -> str:
     return f"{track.title} {' '.join(track.artist_names)}"
+
+
+async def url_to_file(url: str, *, session: aiohttp.ClientSession) -> io.BytesIO:
+    async with session.get(url) as response:
+        return io.BytesIO(await response.read())
+
