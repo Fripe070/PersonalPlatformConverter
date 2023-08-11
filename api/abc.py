@@ -105,24 +105,24 @@ class AbstractAPI(ABC):
     def __init__(self, *, session: aiohttp.ClientSession):
         self.session = session
 
-    async def is_valid_track_url(self, track_url: str, /) -> bool:
+    def is_valid_track_url(self, track_url: str, /) -> bool:
         try:
-            self.extract_track_id(track_url)
+            self.get_track_id(track_url)
         except InvalidURLError:
             return False
         else:
             return True
 
     @abstractmethod
-    def extract_track_id(self, track_url: str, /) -> str:
+    def get_track_id(self, track_url: str) -> str:
         raise NotImplementedError
 
     @abstractmethod
-    async def search_tracks(self, query: str, /) -> list[UniversalTrack] | None:
+    async def track_from_id(self, track_id: str) -> UniversalTrack | None:
         raise NotImplementedError
 
     @abstractmethod
-    async def url_to_query(self, url: str, /) -> str:
+    async def search_tracks(self, query: str) -> list[UniversalTrack] | None:
         raise NotImplementedError
 
 
@@ -147,16 +147,16 @@ class AbstractOAuthAPI(AbstractAPI, ABC):
 class AbstractPlaylistAPI(ABC):
     async def is_valid_playlist_url(self, playlist_url: str, /) -> bool:
         try:
-            self.extract_playlist_id(playlist_url)
+            self.get_playlist_id(playlist_url)
         except InvalidURLError:
             return False
         else:
             return True
 
     @abstractmethod
-    def extract_playlist_id(self, playlist_url: str, /) -> str:
+    def get_playlist_id(self, playlist_url: str) -> str:
         raise NotImplementedError
 
     @abstractmethod
-    async def get_playlist_content(self, url: str, /) -> UniversalPlaylist | None:
+    async def get_playlist_content(self, playlist_id: str) -> UniversalPlaylist | None:
         raise NotImplementedError

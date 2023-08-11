@@ -4,7 +4,6 @@ from discord.ext import commands, tasks
 
 import breadcord
 from .abc import AbstractOAuthAPI, AbstractAPI, UniversalTrack
-from .platforms import *
 from .types import APIInterface
 
 __all__ = [
@@ -89,3 +88,5 @@ def track_embed(
         colour=discord.Colour.random(seed=track.url) if random_colour else colour
     ).set_thumbnail(url=track.cover_url)
 
+def track_to_query(track: UniversalTrack) -> str:
+    return f"{track.title} {' '.join(track.artist_names)}"
