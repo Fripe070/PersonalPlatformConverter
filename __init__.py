@@ -210,13 +210,14 @@ class PlatformConverter(helpers.PlatformAPICog):
             await ctx.reply("Could not find that playlist. Ensure that it exists and is public.")
             return
 
-        description = (discord.utils.escape_markdown(playlist.description.strip()) or "") + "\n\n**Tracks**"
+        description = discord.utils.escape_markdown(playlist.description.strip()) if playlist.description else ""
+        description += "\n\n**Tracks**"
         for i, track in enumerate(playlist.tracks):
             title = discord.utils.escape_markdown(track.title)
             artists = ", ".join(map(discord.utils.escape_markdown, track.artist_names))
 
             fallback_text = f"\n\nAnd {len(playlist.tracks) - i} more..." if i != len(playlist.tracks) - 1 else ""
-            addition = f"[{title}]({track.url}) - {artists}"
+            addition = f"{i + 1}. [{title}]({track.url}) - {artists}"
             if len(description) + len(addition) + len(fallback_text) >= 4096 or i >= max_tracks:
                 description += fallback_text
                 break
