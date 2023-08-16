@@ -16,6 +16,7 @@ from .api.platforms import SpotifyAPI, YoutubeAPI
 from .api.types import APIInterface
 
 
+# noinspection SqlResolve
 class PlatformConverter(helpers.PlatformAPICog):
     def __init__(self, module_id: str):
         super().__init__(module_id)
@@ -270,7 +271,7 @@ class PlatformConverter(helpers.PlatformAPICog):
                 if not await api_interface.is_valid_track_url(url):
                     continue
                 elif isinstance(api_interface, YoutubeAPI):
-                    video = await Video.getInfo(api_interface.extract_track_id(url))
+                    video = await Video.getInfo(api_interface.get_track_id(url))
                     return UniversalTrack(
                         title=video["title"],
                         artist_names=[video["channel"]["name"]],
